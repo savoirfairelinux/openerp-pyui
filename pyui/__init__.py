@@ -24,6 +24,27 @@ from lxml.builder import E
 
 from openerp.osv.fields import field_to_dict
 
+class ViewManager(object):
+    def __init__(self, model):
+        assert not hasattr(model, 'PYUI_VIEW_MANAGER')
+        self.model = model
+        self.model.PYUI_VIEW_MANAGER = self
+        def fields_view_get_wrapper(self, *args, **kwargs):
+            return self.PYUI_VIEW_MANAGER.fields_view_get(self, *args, **kwargs)
+        self.model.fields_view_get = fields_view_get_wrapper
+
+    def get_tree_view(self):
+        return None
+
+    def fields_view_get(self, model_inst, cr, uid, view_id=None, view_type='form', context=None, toolbar=False, submenu=False):
+        result = super(self.model, model_inst).fields_view_get(cr, uid, view_id, view_type, context, toolbar, submenu)
+        if view_type == 'tree':
+            view = self.get_tree_view()
+            if view is not None:
+                result['fields'] = view.field_defs(self.model, cr, uid)
+                result['arch'] = view.render()
+        return result
+
 class TreeView(object):
     def __init__(self, title, columns):
         self.title = title

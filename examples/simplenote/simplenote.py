@@ -21,7 +21,7 @@
 
 from openerp.osv import orm, fields
 
-from pyui import TreeView
+from pyui import TreeView, ViewManager
 
 class simplenote_note(orm.Model):
     _name = 'simplenote.note'
@@ -32,11 +32,9 @@ class simplenote_note(orm.Model):
         'note': fields.char("Note", size=2000),
     }
 
-    def fields_view_get(self, cr, uid, view_id=None, view_type='form', context=None, toolbar=False, submenu=False):
-        result = super(simplenote_note, self).fields_view_get(cr, uid, view_id, view_type, context, toolbar, submenu)
-        if view_type == 'tree':
-            view = TreeView("Simple notes", columns=['title', 'subject'])
-            result['fields'] = view.field_defs(self, cr, uid)
-            result['arch'] = view.render()
-        return result
+class SimpleNoteViewManager(ViewManager):
+    def get_tree_view(self):
+        return TreeView("Simple notes", columns=['title', 'subject'])
 
+# We have to instantiate a ViewManager to make it "wrap" its target model
+SimpleNoteViewManager(simplenote_note)
