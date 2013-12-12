@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<openerp>
+    <data>
+        <record id="simplenote_note_action_list" model="ir.actions.act_window">
+            <field name="name">Simple notes</field>
+            <field name="type">ir.actions.act_window</field>
+            <field name="res_model">simplenote.note</field>
+            <field name="view_type">form</field>
+            <field name="view_mode">tree,form</field>
+        </record>
+
+        <menuitem name="SimpleNote"
+                  id="simplenote.menu_main"
+        />
+        <menuitem name="Contents" 
+                  id="simplenote.menu_contents"
+                  parent="simplenote.menu_main"
+        />
+        <menuitem name="The notes"
+                  id="simplenote.menu_notes"
+                  parent="simplenote.menu_contents"
+                  action="simplenote_note_action_list"
+        />
+    </data>
+</openerp>
