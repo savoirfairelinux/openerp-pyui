@@ -35,7 +35,8 @@ class simplenote_note(orm.Model):
     def fields_view_get(self, cr, uid, view_id=None, view_type='form', context=None, toolbar=False, submenu=False):
         result = super(simplenote_note, self).fields_view_get(cr, uid, view_id, view_type, context, toolbar, submenu)
         if view_type == 'tree':
-            view = TreeView(self, "Simple notes", columns=['title', 'subject'])
+            view = TreeView("Simple notes", columns=['title', 'subject'])
+            result['fields'] = view.field_defs(self, cr, uid)
             result['arch'] = view.render()
         return result
 

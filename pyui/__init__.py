@@ -22,11 +22,19 @@
 from lxml.etree import tostring
 from lxml.builder import E
 
+from openerp.osv.fields import field_to_dict
+
 class TreeView(object):
-    def __init__(self, model, title, columns):
-        self.model = model
+    def __init__(self, title, columns):
         self.title = title
         self.columns = columns
+
+    def field_defs(self, model, cr, uid):
+        res = {}
+        for colname in self.columns:
+            col = model._columns[colname]
+            res[colname] = field_to_dict(model, cr, uid, col)
+        return res
 
     def render(self):
         fields = [E.field(name=col) for col in self.columns]
