@@ -49,7 +49,7 @@ class ViewManager(object):
         if view_gen_meth is not None:
             view = view_gen_meth()
             if view is not None:
-                result['fields'] = view.field_defs(self.model, cr, uid)
+                result['fields'] = view.field_defs(model_inst, cr, uid)
                 result['arch'] = view.render()
         return result
 
