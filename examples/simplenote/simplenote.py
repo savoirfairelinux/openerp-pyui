@@ -21,20 +21,27 @@
 
 from openerp.osv import orm, fields
 
-from pyui import TreeView, FormView, ViewManager
+from pyui import TreeView, FormView, ViewManager, FieldRef
 
 class simplenote_note(orm.Model):
     _name = 'simplenote.note'
 
     _columns = {
+        'sequence': fields.integer("Sequence", required=True),
         'title': fields.char("Title", size=200),
         'subject': fields.char("Subject", size=200),
         'note': fields.char("Note", size=2000),
     }
+    _order = 'sequence'
 
 class SimpleNoteViewManager(ViewManager):
     def get_tree_view(self):
-        return TreeView("Simple notes", columns=['title', 'subject'])
+        columns = [
+            FieldRef('sequence', widget='handle'),
+            'title',
+            'subject',
+        ]
+        return TreeView("Simple notes", columns=columns)
 
     def get_form_view(self):
         view = FormView("Simple note")

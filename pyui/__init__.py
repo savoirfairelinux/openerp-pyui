@@ -53,27 +53,45 @@ class ViewManager(object):
                 result['arch'] = view.render()
         return result
 
+class FieldRef(object):
+    """Reference to a field.
+
+    This can be used everywhere we expect a field name. Use this class to attach attributes to your
+    field reference. This is akin to adding additional attributes to your ``<field>`` tag in XML.
+    """
+    def __init__(self, name, **attrs):
+        self.name = name
+        self.attrs = attrs
+
+    def totag(self):
+        return E.field(name=self.name, **self.attrs)
+
+def ensure_fieldref(name_or_ref):
+    if isinstance(name_or_ref, FieldRef):
+        return name_or_ref
+    return FieldRef(name_or_ref)
+
 class BaseView(object):
-    def _get_all_fieldnames(self):
+    def _get_all_fields(self):
         raise NotImplementedError()
 
     def field_defs(self, model, cr, uid):
         res = {}
-        for fieldname in self._get_all_fieldnames():
-            col = model._columns[fieldname]
-            res[fieldname] = field_to_dict(model, cr, uid, col)
+        for field in self._get_all_fields():
+            col = model._columns[field.name]
+            res[field.name] = field_to_dict(model, cr, uid, col)
         return res
     
 class TreeView(BaseView):
     def __init__(self, title, columns):
         self.title = title
-        self.columns = columns
+        self.columns = map(ensure_fieldref, columns)
 
-    def _get_all_fieldnames(self):
+    def _get_all_fields(self):
         return self.columns
 
     def render(self):
-        fields = [E.field(name=col) for col in self.columns]
+        fields = [field.totag() for field in self.columns]
         tree = E.tree(*fields, title=self.title)
         return tostring(tree)
 
@@ -82,17 +100,16 @@ class FormView(BaseView):
         self.title = title
         self.groups = []
 
-    def _get_all_fieldnames(self):
+    def _get_all_fields(self):
         return flatten(self.groups)
 
-    def add_group(self, *fieldnames):
-        self.groups.append(fieldnames)
+    def add_group(self, *fields):
+        self.groups.append(map(ensure_fieldref, fields))
 
     def render(self):
-        def render_group(fieldnames):
-            fields = [E.field(name=fieldname) for fieldname in fieldnames]
-            return E.group(*fields)
-        groups = [render_group(fieldnames) for fieldnames in self.groups]
+        def render_group(fields):
+            return E.group(*[field.totag() for field in fields])
+        groups = [render_group(fields) for fields in self.groups]
         form = E.form(E.sheet(*groups), title=self.title)
         return tostring(form)
 
