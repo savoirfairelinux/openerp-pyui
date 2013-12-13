@@ -33,6 +33,9 @@ class simplenote_note(orm.Model):
         'note': fields.char("Note", size=2000),
         'tag_ids': fields.one2many('simplenote.tag', 'note_id', "Tags"),
     }
+    _defaults = {
+        'sequence': 0,
+    }
     _order = 'sequence'
 
 class SimpleNoteViewManager(ViewManager):
@@ -47,7 +50,13 @@ class SimpleNoteViewManager(ViewManager):
     def get_form_view(self):
         view = FormView("Simple note")
         tag_tree = TreeView("", columns=['label'], editable='bottom')
-        view.add_group('title', 'subject', 'note', FieldRef('tag_ids', inner=tag_tree))
+        fields = [
+            'title',
+            FieldRef('subject', attrs={'readonly': [('title', '=', 'foobar')]}),
+            'note',
+            FieldRef('tag_ids', inner=tag_tree),
+        ]
+        view.add_group(*fields)
         return view
 
 

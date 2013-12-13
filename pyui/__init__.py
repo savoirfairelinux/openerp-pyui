@@ -23,6 +23,7 @@ from lxml.etree import tostring
 from lxml.builder import E
 
 from openerp.osv.fields import field_to_dict
+from openerp.osv.orm import setup_modifiers
 from openerp.tools.misc import flatten
 
 class ViewManager(object):
@@ -75,7 +76,14 @@ class FieldRef(object):
         return result
 
     def render(self):
-        return E.field(name=self.name, **self.attrs)
+        # We allow the caller to supply "attrs" directly with a dict instead of a string repr of a
+        # dict. It's more elegant this way and allows us easier inspection. But we have to convert
+        # it to string before passing it out to lxml. 
+        if 'attrs' in self.attrs:
+            self.attrs['attrs'] = unicode(self.attrs['attrs'])
+        node = E.field(name=self.name, **self.attrs)
+        setup_modifiers(node)
+        return node
 
 def ensure_fieldref(name_or_ref):
     if isinstance(name_or_ref, FieldRef):
