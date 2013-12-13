@@ -31,6 +31,7 @@ class simplenote_note(orm.Model):
         'title': fields.char("Title", size=200),
         'subject': fields.char("Subject", size=200),
         'note': fields.char("Note", size=2000),
+        'tag_ids': fields.one2many('simplenote.tag', 'note_id', "Tags"),
     }
     _order = 'sequence'
 
@@ -45,9 +46,18 @@ class SimpleNoteViewManager(ViewManager):
 
     def get_form_view(self):
         view = FormView("Simple note")
-        view.add_group('title', 'subject', 'note')
+        tag_tree = TreeView("", columns=['label'], editable='bottom')
+        view.add_group('title', 'subject', 'note', FieldRef('tag_ids', inner=tag_tree))
         return view
 
 
 # We have to instantiate a ViewManager to make it "wrap" its target model
 SimpleNoteViewManager(simplenote_note)
+
+class simplenote_tag(orm.Model):
+    _name = 'simplenote.tag'
+
+    _columns = {
+        'note_id': fields.many2one('simplenote.note', "Note"),
+        'label': fields.char("Label", size=50),
+    }

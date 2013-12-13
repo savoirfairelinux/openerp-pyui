@@ -50,7 +50,7 @@ class ViewManager(object):
             view = view_gen_meth()
             if view is not None:
                 result['fields'] = view.field_defs(model_inst, cr, uid)
-                result['arch'] = view.render()
+                result['arch'] = tostring(view.render())
         return result
 
 class FieldRef(object):
@@ -59,11 +59,22 @@ class FieldRef(object):
     This can be used everywhere we expect a field name. Use this class to attach attributes to your
     field reference. This is akin to adding additional attributes to your ``<field>`` tag in XML.
     """
-    def __init__(self, name, **attrs):
+    def __init__(self, name, inner=None, **attrs):
         self.name = name
+        self.inner = inner
         self.attrs = attrs
 
-    def totag(self):
+    def field_def(self, model, cr, uid):
+        col = model._columns[self.name]
+        result = field_to_dict(model, cr, uid, col)
+        if self.inner is not None:
+            inner_model = model.pool.get(col._obj)
+            fields = self.inner.field_defs(inner_model, cr, uid)
+            arch = tostring(self.inner.render())
+            result['views'] = {'tree': {'fields': fields, 'arch': arch}}
+        return result
+
+    def render(self):
         return E.field(name=self.name, **self.attrs)
 
 def ensure_fieldref(name_or_ref):
@@ -76,24 +87,24 @@ class BaseView(object):
         raise NotImplementedError()
 
     def field_defs(self, model, cr, uid):
-        res = {}
-        for field in self._get_all_fields():
-            col = model._columns[field.name]
-            res[field.name] = field_to_dict(model, cr, uid, col)
-        return res
-    
+        return {field.name: field.field_def(model, cr, uid) for field in self._get_all_fields()}
+
 class TreeView(BaseView):
-    def __init__(self, title, columns):
+    def __init__(self, title, columns, editable=None):
         self.title = title
+        self.editable = editable
         self.columns = map(ensure_fieldref, columns)
 
     def _get_all_fields(self):
         return self.columns
 
     def render(self):
-        fields = [field.totag() for field in self.columns]
-        tree = E.tree(*fields, title=self.title)
-        return tostring(tree)
+        fields = [field.render() for field in self.columns]
+        attrs = dict(title=self.title)
+        if self.editable:
+            attrs['editable'] = self.editable
+        tree = E.tree(*fields, **attrs)
+        return tree
 
 class FormView(BaseView):
     def __init__(self, title):
@@ -108,8 +119,8 @@ class FormView(BaseView):
 
     def render(self):
         def render_group(fields):
-            return E.group(*[field.totag() for field in fields])
+            return E.group(*[field.render() for field in fields])
         groups = [render_group(fields) for fields in self.groups]
         form = E.form(E.sheet(*groups), title=self.title)
-        return tostring(form)
+        return form
 
