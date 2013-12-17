@@ -22,17 +22,16 @@ by writing this instead:
 
 ```python
 from openerp.osv import orm, fields
-from pyui import TreeView
+from pyui import TreeView, ViewManager
 
 class foobar_foobar(orm.Model):
-    _name = 'foobar.foobar'
     # [...]
-    def fields_view_get(self, cr, uid, view_id=None, view_type='form', context=None, toolbar=False, submenu=False):
-        result = super(foobar_foobar, self).fields_view_get(cr, uid, view_id, view_type, context, toolbar, submenu)
-        if view_type == 'tree':
-            view = TreeView(self, "My Foobar List", columns=['name', 'field1', 'field2'])
-            result['arch'] = view.render()
-        return result
+
+class FoobarViewManager(ViewManager):
+    def get_tree_view(self):
+        return TreeView(self, "My Foobar List", columns=['name', 'field1', 'field2'])
+
+FoobarViewManager(foobar_foobar)
 ```
 
 Installation
