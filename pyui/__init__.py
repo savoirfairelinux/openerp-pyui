@@ -65,6 +65,15 @@ class FieldRef(object):
         self.inner = inner
         self.attrs = attrs
 
+    def dependencies(self):
+        if 'attrs' in self.attrs:
+            domains = [domain for domains in self.attrs['attrs'].values() for domain in domains]
+            # now we have a list of all flattened ('fieldname', '=', 'whatever') tuples
+            fieldnames = [t[0] for t in domains]
+            return [FieldRef(fieldname) for fieldname in fieldnames]
+        else:
+            return []
+
     def field_def(self, model, cr, uid):
         col = model._columns[self.name]
         result = field_to_dict(model, cr, uid, col)
@@ -79,9 +88,11 @@ class FieldRef(object):
         # We allow the caller to supply "attrs" directly with a dict instead of a string repr of a
         # dict. It's more elegant this way and allows us easier inspection. But we have to convert
         # it to string before passing it out to lxml. 
+        attrs = self.attrs
         if 'attrs' in self.attrs:
-            self.attrs['attrs'] = unicode(self.attrs['attrs'])
-        node = E.field(name=self.name, **self.attrs)
+            attrs = attrs.copy()
+            attrs['attrs'] = unicode(attrs['attrs'])
+        node = E.field(name=self.name, **attrs)
         setup_modifiers(node)
         return node
 
@@ -94,8 +105,30 @@ class BaseView(object):
     def _get_all_fields(self):
         raise NotImplementedError()
 
+    def _extra_fields(self, **attrs):
+        """Returns a list of "extra" fields needed by the UI.
+
+        The "extra" fields are thos fields that aren't displayed in the UI but that are used by
+        the various "domains" tuples all around. If they aren't there, the UI will crap out, so we
+        need to identify them and add them.
+
+        If you specify extra arguments, such as "invisible", they will be injected in the fields
+        you get back in the results.
+        """
+        result = set()
+        allfields = self._get_all_fields()
+        fieldnames = {field.name for field in allfields}
+        for field in allfields:
+            for dep in field.dependencies():
+                if dep.name not in fieldnames:
+                    dep.attrs = attrs
+                    fieldnames.add(dep.name)
+                    result.add(dep)
+        return result
+
     def field_defs(self, model, cr, uid):
-        return {field.name: field.field_def(model, cr, uid) for field in self._get_all_fields()}
+        allfields = self._get_all_fields() + list(self._extra_fields())
+        return {field.name: field.field_def(model, cr, uid) for field in allfields}
 
 class TreeView(BaseView):
     def __init__(self, title, columns, editable=None):
@@ -104,10 +137,11 @@ class TreeView(BaseView):
         self.columns = map(ensure_fieldref, columns)
 
     def _get_all_fields(self):
-        return self.columns
+        return self.columns[:]
 
     def render(self):
         fields = [field.render() for field in self.columns]
+        fields.extend(self._extra_fields(invisible='1'))
         attrs = dict(title=self.title)
         if self.editable:
             attrs['editable'] = self.editable
@@ -129,6 +163,7 @@ class FormView(BaseView):
         def render_group(fields):
             return E.group(*[field.render() for field in fields])
         groups = [render_group(fields) for fields in self.groups]
+        groups.extend(f.render() for f in self._extra_fields(invisible='1'))
         form = E.form(E.sheet(*groups), title=self.title)
         return form
 

@@ -52,7 +52,9 @@ class SimpleNoteViewManager(ViewManager):
         tag_tree = TreeView("", columns=['label'], editable='bottom')
         fields = [
             'title',
-            FieldRef('subject', attrs={'readonly': [('title', '=', 'foobar')]}),
+            # Here, we reference to a field that isn't in the field list. PyUI is going to handle
+            # field dependencies automatically.
+            FieldRef('subject', attrs={'readonly': [('sequence', '=', 0)]}),
             'note',
             FieldRef('tag_ids', inner=tag_tree),
         ]
