@@ -26,32 +26,65 @@ from openerp.osv.fields import field_to_dict
 from openerp.osv.orm import setup_modifiers
 from openerp.tools.misc import flatten
 
+from .util import first
+
 class ViewManager(object):
     def __init__(self, model):
         assert not hasattr(model, 'PYUI_VIEW_MANAGER')
         self.model = model
         self.model.PYUI_VIEW_MANAGER = self
         def fields_view_get_wrapper(self, *args, **kwargs):
-            return self.PYUI_VIEW_MANAGER.fields_view_get(self, *args, **kwargs)
+            return model.PYUI_VIEW_MANAGER.fields_view_get(self, *args, **kwargs)
         self.model.fields_view_get = fields_view_get_wrapper
 
     def get_tree_view(self):
         return None
 
+    def update_tree_view(self, view):
+        pass
+
     def get_form_view(self):
         return None
 
+    def update_form_view(self, view):
+        pass
+
     def fields_view_get(self, model_inst, cr, uid, view_id=None, view_type='form', context=None, toolbar=False, submenu=False):
+        if context is None:
+            context = {}
+        # When in a "PyUI-enabled" environment, we have to detect who's (which class) going to
+        # actually render the final view. You know who is it? The first one to get a context that
+        # doesn't have anything about PyUI. This guy will set a flag for itself, and then enable
+        # the PyUI context, telling all other class from the same model to directly return PyUI
+        # view instances rather than rendered results.
+        if 'PYUI_CONTEXT' in context:
+            render = False
+        else:
+            render = True
+            context['PYUI_CONTEXT'] = True
         result = super(self.model, model_inst).fields_view_get(cr, uid, view_id, view_type, context, toolbar, submenu)
-        view_gen_meth = {
-            'tree': self.get_tree_view,
-            'form': self.get_form_view,
-        }.get(view_type)
-        if view_gen_meth is not None:
-            view = view_gen_meth()
-            if view is not None:
-                result['fields'] = view.field_defs(model_inst, cr, uid)
-                result['arch'] = tostring(view.render())
+        if 'PYUI_VIEW' in context:
+            # We *inherit* from a PyUI view which has already been created
+            view = context['PYUI_VIEW']
+            view_update_meth = {
+                'tree': self.update_tree_view,
+                'form': self.update_form_view,
+            }.get(view_type)
+            if view_update_meth is not None:
+                view_update_meth(view)
+        else:
+            view = None
+            view_gen_meth = {
+                'tree': self.get_tree_view,
+                'form': self.get_form_view,
+            }.get(view_type)
+            if view_gen_meth is not None:
+                view = view_gen_meth()
+                if view is not None:
+                    context['PYUI_VIEW'] = view
+        if render and view is not None:
+            result['fields'] = view.field_defs(model_inst, cr, uid)
+            result['arch'] = tostring(view.render())
         return result
 
 class FieldRef(object):
@@ -138,6 +171,21 @@ class TreeView(BaseView):
 
     def _get_all_fields(self):
         return self.columns[:]
+
+    def add_column(self, column, before=None, after=None):
+        assert not (before and after), "Can't specify both before and after args"
+        column = ensure_fieldref(column)
+        tofind = before or after
+        if tofind:
+            index = first(i for i, field in enumerate(self.columns) if field.name == tofind)
+        else:
+            index = None
+        if index is None:
+            self.columns.append(column)
+        else:
+            if after:
+                index += 1
+            self.columns.insert(index, column)
 
     def render(self):
         fields = [field.render() for field in self.columns]
